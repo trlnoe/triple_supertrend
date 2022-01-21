@@ -1,0 +1,157 @@
+//@version=4
+strategy("Triple_SuperTrend", calc_on_every_tick=true, overlay=true, currency=currency.CAD, initial_capital=1000, 
+     commission_type=strategy.commission.percent, 
+     commission_value=0.075)
+
+
+//Triple SuperTrend Parameters
+src = hl2 // Sets the default value to a bar’s midpoint (that is, [high + low] / 2).
+
+Periods = 12
+Multiplier = 3
+
+two_Periods = 11
+two_Multiplier = 2
+
+three_Periods = 10
+three_Multiplier = 1
+
+//Moving Average Parameters
+timeframe = 200
+
+//Stoch RSI Parameters
+smoothK = 3
+smoothD = 3
+lengthRSI = 14
+lengthStoch = 14
+stoch_src = close
+
+//Main strategy parameters
+var buy_StopLoss = 0.0
+var buy_TakeProfit = 100000.0
+var sell_StopLoss = 100000.0
+var sell_TakeProfit = 0.0
+
+
+//
+// Tripple Super Trend Code
+// 1 is furthest line out on each side, 2 is middle , 3 is inner line
+atr= atr(Periods)
+
+up=src-(Multiplier*atr)                 // sets the default value to a bar’s midpoint (that is, [high + low] / 2).
+up1 = nz(up[1],up)                      //prevent the na value, if up[1] is a na, then up[1] = up
+up := close[1] > up1 ? max(up,up1) : up //condition ? result1 : result2  - if(close[1] > up1) up = max(up, up1)
+                                                                        // else up = up
+dn=src+(Multiplier*atr)
+dn1 = nz(dn[1], dn)
+dn := close[1] < dn1 ? min(dn, dn1) : dn
+
+trend = 1
+trend := nz(trend[1], trend)
+
+trend := trend == -1 and close > dn1 ? 1 : trend == 1 and close < up1 ? -1 : trend
+//if(trend == -1 and close > dn1) trend = 1
+//elif(trend == 1 and close < up1) trend = -1
+//else trend = trend
+
+upPlot = plot(trend == 1 ? up : na, title="Up Trend", style=plot.style_linebr, linewidth=2, color=color.green)
+dnPlot = plot(trend == 1 ? na : dn, title="Down Trend", style=plot.style_linebr, linewidth=2, color=color.red)
+
+two_atr= atr(two_Periods)
+two_up=src-(two_Multiplier*two_atr)
+two_up1 = nz(two_up[1],two_up)
+two_up := close[1] > two_up1 ? max(two_up,two_up1) : two_up
+two_dn=src+(two_Multiplier*two_atr)
+two_dn1 = nz(two_dn[1], two_dn)
+two_dn := close[1] < two_dn1 ? min(two_dn, two_dn1) : two_dn
+two_trend = 1
+two_trend := nz(two_trend[1], two_trend)
+two_trend := two_trend == -1 and close > two_dn1 ? 1 : two_trend == 1 and close < two_up1 ? -1 : two_trend
+two_upPlot = plot(two_trend == 1 ? two_up : na, title="Up Trend", style=plot.style_linebr, linewidth=2, color=color.green)
+two_dnPlot = plot(two_trend == 1 ? na : two_dn, title="Down Trend", style=plot.style_linebr, linewidth=2, color=color.red)
+
+three_atr= atr(three_Periods)
+three_up=src-(three_Multiplier*three_atr)
+three_up1 = nz(three_up[1],three_up)
+three_up := close[1] > three_up1 ? max(three_up,three_up1) : three_up
+three_dn=src+(three_Multiplier*three_atr)
+three_dn1 = nz(three_dn[1], three_dn)
+three_dn := close[1] < three_dn1 ? min(three_dn, three_dn1) : three_dn
+three_trend = 1
+three_trend := nz(three_trend[1], three_trend)
+three_trend := three_trend == -1 and close > three_dn1 ? 1 : three_trend == 1 and close < three_up1 ? -1 : three_trend
+three_upPlot = plot(three_trend == 1 ? three_up : na, title="Up Trend", style=plot.style_linebr, linewidth=2, color=color.green)
+three_dnPlot = plot(three_trend == 1 ? na : three_dn, title="Down Trend", style=plot.style_linebr, linewidth=2, color=color.red)
+//
+// Moving Average Code
+//
+EMA = ema(close, timeframe) //timeframe = 200
+plot(series=EMA, color=color.white, linewidth=2)
+//
+// Stoch RSI
+//
+rsi1 = rsi(stoch_src, lengthRSI)
+k = sma(stoch(rsi1, rsi1, rsi1, lengthStoch), smoothK) // stoch (close, high, low, Length)
+d = sma(k, smoothD)
+
+plot(k, title="K", color = color.yellow, style = plot.style_line, linewidth=1)
+plot(d, title="D", color = color.blue, style = plot.style_line, linewidth=1)
+//
+//Calculating Enter Conditions
+//
+
+
+//Long Conditions:
+//-Two supertrend lines below current price
+//-Above 200 Moving Average
+//-Stoch RSI < 20
+//-Stoch K & D values cross over
+
+//Entry Buy Condition
+if EMA < close and crossover(k,d) and avg(k,d) < 20 and trend == 1 and two_trend == 1 and strategy.position_size <= 0
+    strategy.entry("buy", strategy.long, when=strategy.position_size <= 0)
+    buy_StopLoss := up
+    buy_TakeProfit := 2.5*close - 1.5*up
+strategy.exit("exitbuy", "buy",  1, limit=buy_TakeProfit, stop=buy_StopLoss)
+
+//plot(strategy.position_size <= 0 ? na : buy_StopLoss, color=color.red, linewidth=4, style=plot.style_linebr)
+//plot(strategy.position_size <= 0 ? na : buy_TakeProfit, color=color.green, linewidth=4, style=plot.style_linebr)
+//bgcolor(strategy.position_size <= 0 ? color.white : color.green, transp=75)
+
+
+//Short Conditions:
+//-Two supertrend lines above current price
+//-Below 200 Moving Average
+//-Stoch RSI > 80
+//-Stoch D & K values cross over
+
+//Entry Short Position
+if EMA > close and crossover(d,k) and avg(k,d) > 80 and trend == -1 and two_trend == -1 and strategy.position_size >= 0
+    strategy.entry("sell", strategy.short, 1, when=strategy.position_size >= 0)
+    sell_StopLoss := dn
+    sell_TakeProfit := 2.5*close - 1.5*dn
+strategy.exit("exitsell", "sell",  1, limit=sell_TakeProfit, stop=sell_StopLoss)
+
+//plot(strategy.position_size >= 0 ? na : sell_StopLoss, color=color.red, linewidth=4, style=plot.style_linebr)
+//plot(strategy.position_size >= 0 ? na : sell_TakeProfit, color=color.green, linewidth=4, style=plot.style_linebr)
+
+
+
+//To Do:
+//Long Conditions:
+//-Two supertrend lines below current price
+//-Above 200 Moving Average
+//-Stoch RSI < 20
+//-Stoch K & D values cross over
+
+//Short Conditions:
+//-Two supertrend lines above current price
+//-Below 200 Moving Average
+//-Stoch RSI > 80
+//-Stoch D & K values cross over
+
+//StopLoss Conditions:
+//-Stoploss is on the second supertrend line
+
+//Reward:
+//-Targeting a 1:1.5 risk to reward ratio*/
